@@ -1,0 +1,30 @@
+# eap-mcp — LLM Context
+
+> Port 8083 | Context Path: /
+> Spring AI MCP Server — exposes trading tools for LLM agent consumption.
+> Communicates with eap-order and eap-wallet via Feign clients.
+
+## MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| placeOrder | Place buy/sell order (params: userId, side, price, qty) |
+| getUserOrders | Query user's orders |
+| cancelOrder | Cancel order by ID |
+| getOrderBook | Get order book with depth |
+| getMarketMetrics | Real-time market indicators |
+| registerUser | Register new user (auto wallet with 10000 initial balance) |
+| getUserWallet | Query wallet status |
+| checkUserExists | Check if user ID exists |
+| runSimulation | Simple trading simulation |
+| runEnhancedSimulation | Multi-merchant market simulation (weather, strategies) |
+| exportReport | Export last simulation report |
+| getSimulationStrategies | List available merchant strategies |
+
+## Key Files
+
+| What | Path |
+|------|------|
+| Tool Definitions | src/main/java/com/eap/mcp/tool/ |
+| Feign Clients | src/main/java/com/eap/mcp/client/ |
+| Simulation | src/main/java/com/eap/mcp/simulation/ |
