@@ -51,4 +51,22 @@ public interface OrderServiceClient {
      */
     @GetMapping("/mcp/v1/metrics")
     ResponseEntity<MarketMetricsResponse> getMarketMetrics(@RequestParam(defaultValue = "10") int depth);
+
+    /**
+     * 提交拍賣密封出價
+     */
+    @PostMapping("/mcp/v1/auction/bid")
+    ResponseEntity<AuctionBidResponse> submitAuctionBid(@RequestBody AuctionBidRequest request);
+
+    /**
+     * 查詢當前拍賣狀態
+     */
+    @GetMapping("/mcp/v1/auction/status")
+    ResponseEntity<AuctionStatusDto> getAuctionStatus();
+
+    /**
+     * 查詢拍賣結果
+     */
+    @GetMapping("/mcp/v1/auction/results")
+    ResponseEntity<AuctionResultDto> getAuctionResults(@RequestParam String auctionId);
 }
