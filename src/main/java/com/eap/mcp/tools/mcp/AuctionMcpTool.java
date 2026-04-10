@@ -44,10 +44,18 @@ public class AuctionMcpTool {
             List<AuctionBidRequest.BidStep> steps = objectMapper.readValue(
                     stepsJson, new TypeReference<List<AuctionBidRequest.BidStep>>() {});
 
-            log.info("提交拍賣出價: userId={}, side={}, steps={}", userId, side, steps.size());
+            // Auto-fill auctionId from current auction status
+            AuctionStatusDto currentStatus = getAuctionStatus();
+            if (currentStatus.getAuctionId() == null || "NO_ACTIVE_AUCTION".equals(currentStatus.getStatus())) {
+                return AuctionBidResponse.failure("目前沒有進行中的拍賣場次");
+            }
+
+            log.info("提交拍賣出價: userId={}, side={}, steps={}, auctionId={}",
+                    userId, side, steps.size(), currentStatus.getAuctionId());
 
             AuctionBidRequest request = AuctionBidRequest.builder()
                 .userId(userId)
+                .auctionId(currentStatus.getAuctionId())
                 .side(side)
                 .steps(steps)
                 .build();
