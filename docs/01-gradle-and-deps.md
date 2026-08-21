@@ -1,5 +1,7 @@
 # 01 - Gradle 與相依套件（Dependencies）
 
+> **教學與演進筆記。** 現行 dependency、獨立 repository 結構與啟動方式請以 [eap-mcp README](../README.md) 及根目錄 `build.gradle` 為準。MCP 是可選控制面，不參與交易核心路徑或容量測試。
+
 本文說明如何為 `eap-mcp` 模組準備 Gradle 依賴與常見設定，讓 MCP 工具可以順利編譯、注入以及與其他服務（如 wallet/order）整合。
 
 ## 目標

@@ -1,5 +1,7 @@
 # 02 - MCP 設定與初始化（Configuration）
 
+> **教學與演進筆記。** 下方介面與設定片段用於解釋概念；現行實作請以 [README](../README.md)、[`application.yml`](../src/main/resources/application.yml) 與 `src/main/java` 為準。不要把範例 endpoint 或尚未實作的控制寫成 production 保證。
+
 本篇說明在 `eap-mcp` 模組中，如何為 MCP 工具平台做必要的設定：包含 Tool 註冊、MCP client 初始化以及整合外部服務（例如 Wallet / Order）。
 
 ## MCP 需要的基本設定

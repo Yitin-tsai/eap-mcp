@@ -1,5 +1,7 @@
 # MCP Client Configuration for EAP Trading Platform
 
+> **歷史 client 範例。** protocol version、transport 與假設的 Node client 可能與現行 Spring AI MCP server 不一致。現行連線方式請以 [README](../README.md)、server `application.yml` 與實際啟動後能力協商為準。
+
 ## Server Information
 - **Server Name**: EAP Trading MCP Server
 - **Version**: 1.0.0

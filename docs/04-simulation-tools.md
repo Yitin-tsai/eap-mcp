@@ -1,4 +1,6 @@
-MCP｜Simulation 設計理念、請求/回傳模型與模擬要點（上）
+# MCP Simulation 設計理念、請求／回傳模型與模擬要點
+
+> **設計與教學筆記。** 欄位與行為以現行 `SimulationRequest`、`SimulationService` 及 [README](../README.md) 為準。`executeReal=true` 只適合受控開發環境，仍須通過正式服務 API 的授權、限流與資產檢查；它不表示 AI 擁有交易或部署權限。
 
 本篇聚焦專案中的「模擬下單」能力：在不改動撮合引擎與錢包服務的前提下，以**非侵入（或選擇性侵入）**的方式，讓 AI/腳本在每個 step 根據市場狀態做出下單決策，並回傳事件日誌與快照，方便後續評估策略成效。
 ## 1. 為什麼要做 Simulation？

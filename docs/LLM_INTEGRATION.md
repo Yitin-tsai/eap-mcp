@@ -1,5 +1,7 @@
 # LLM 平台 MCP 集成指南
 
+> **未驗證的外部客戶端範例。** 本文中的 bridge 路徑與第三方平台設定不是 eap-mcp repository 目前自動驗證的啟動合約。現行服務端設定請以 [README](../README.md) 與 [`application.yml`](../src/main/resources/application.yml) 為準；不要把 secrets 或敏感資料放入示例設定。
+
 ## 🤖 Claude Desktop 集成
 
 ### 配置文件位置

@@ -3,6 +3,7 @@
 > Port 8083 | Context Path: /
 > Spring AI MCP Server — exposes trading tools for LLM agent consumption.
 > Communicates with eap-order and eap-wallet via Feign clients.
+> Control-plane only: tools must delegate business rules to core services and are excluded from core capacity/correctness claims.
 
 ## MCP Tools
 
@@ -21,10 +22,12 @@
 | exportReport | Export last simulation report |
 | getSimulationStrategies | List available merchant strategies |
 
+`AuctionMcpTool` defines `submitAuctionBid`, `getAuctionStatus`, and `getAuctionResults`, but the current `McpToolConfig` does not register that object. Those tools are not exposed until registration and integration verification are added.
+
 ## Key Files
 
 | What | Path |
 |------|------|
-| Tool Definitions | src/main/java/com/eap/mcp/tool/ |
+| Tool Definitions | src/main/java/com/eap/mcp/tools/mcp/ |
 | Feign Clients | src/main/java/com/eap/mcp/client/ |
 | Simulation | src/main/java/com/eap/mcp/simulation/ |

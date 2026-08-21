@@ -1,5 +1,7 @@
 # 03 - 撰寫 MCP Tools：從簡單查詢到狀態變更
 
+> **工具設計筆記。** 工具名稱、參數與錯誤行為可能隨 source 演進；公開能力以 [README](../README.md) 與 `src/main/java/com/eap/mcp/tools/mcp` 為準。具狀態變更的工具只能呼叫公開服務 API，不得繞過 Order/Wallet 的驗證與交易邊界。
+
 本篇用專案內的實際範例說明如何在 `eap-mcp` 中撰寫 MCP 工具（Tool）。這些範例直接摘自 `eap-mcp/src/main/java/com/eap/mcp/tools/mcp`，並補充設計要點。
 
 ## 工具的實作規則

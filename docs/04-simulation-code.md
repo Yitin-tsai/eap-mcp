@@ -1,5 +1,7 @@
 # 04 — Simulation 工具（Code excerpts & explanations）
 
+> **程式片段紀錄。** 這些 excerpt 用於說明 simulation 概念，可能與現行 DTO 欄位不同；請以 [README](../README.md) 與 `src/main/java/com/eap/mcp/simulation` 為準。Simulation 不在撮合核心路徑，也不是正式環境交易策略或容量證據。
+
 本篇將對 Simulation 的重要程式碼片段與逐行說明。
 
 1) SimulationRequest（完整欄位與預設值）

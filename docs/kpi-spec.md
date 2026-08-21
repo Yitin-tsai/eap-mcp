@@ -1,5 +1,7 @@
 # KPI 規格說明文檔
 
+> **領域指標草案。** 本文定義候選市場 KPI，不表示所有時間窗、報表或資料來源都已在現行 MCP service 實作。可呼叫工具與回傳欄位請以 [README](../README.md) 與 `src/main/java/com/eap/mcp/tools/mcp` 為準。
+
 ## 市場關鍵績效指標 (Key Performance Indicators)
 
 ### 1. 價差 (Spread)

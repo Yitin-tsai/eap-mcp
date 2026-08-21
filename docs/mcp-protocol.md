@@ -1,5 +1,7 @@
 # EAP MCP Server 說明文檔
 
+> **協議快照。** 本文保留早期 SSE/protocol 說明；現行端點與能力必須以 [README](../README.md)、[`application.yml`](../src/main/resources/application.yml) 及啟動後的 MCP 能力協商為準，不應只依文件中的固定版本號判定相容性。
+
 ## 概述
 本文檔說明 eap-mcp 服務提供的 Model Context Protocol (MCP) 端點和工具。
 
