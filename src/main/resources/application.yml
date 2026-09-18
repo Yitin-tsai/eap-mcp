@@ -5,6 +5,37 @@ spring:
   application:
     name: eap-mcp
 
+  cloud:
+    openfeign:
+      client:
+        config:
+          order-recovery-source:
+            connect-timeout: 2000
+            read-timeout: 5000
+          wallet-recovery-source:
+            connect-timeout: 2000
+            read-timeout: 5000
+          match-recovery-source:
+            connect-timeout: 2000
+            read-timeout: 5000
+
+  datasource:
+    url: ${EAP_MCP_DB_URL:jdbc:postgresql://localhost:5432/eapdb}
+    username: ${EAP_MCP_DB_USERNAME:admin}
+    password: ${EAP_MCP_DB_PASSWORD:admin123}
+    hikari:
+      connection-timeout: ${EAP_DB_CONNECTION_TIMEOUT_MS:2000}
+
+  liquibase:
+    enabled: ${EAP_RECOVERY_DB_ENABLED:${EAP_RECOVERY_CONTROL_ENABLED:false}}
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+  rabbitmq:
+    host: ${EAP_RABBITMQ_HOST:localhost}
+    port: ${EAP_RABBITMQ_PORT:5672}
+    username: ${EAP_RABBITMQ_USERNAME:admin}
+    password: ${EAP_RABBITMQ_PASSWORD:admin123}
+
   # Spring AI MCP configuration
   ai:
     mcp:
@@ -26,6 +57,18 @@ eap:
   
   wallet:
     base-url: http://localhost:8081/eap-wallet
+
+  match-engine:
+    base-url: http://localhost:8082/match-engine
+
+  recovery-control:
+    enabled: ${EAP_RECOVERY_CONTROL_ENABLED:false}
+    operator-token: ${EAP_RECOVERY_OPERATOR_TOKEN:}
+    source-token: ${EAP_RECOVERY_SOURCE_TOKEN:}
+    max-actions-per-operator-minute: 10
+    broker-dlq:
+      enabled: ${EAP_RECOVERY_BROKER_DLQ_ENABLED:false}
+      queue: order.dlq
 
 # MCP Server configuration
 mcp:
@@ -66,6 +109,9 @@ logging:
 
 # Management endpoints
 management:
+  health:
+    db:
+      enabled: ${EAP_RECOVERY_DB_ENABLED:${EAP_RECOVERY_CONTROL_ENABLED:false}}
   endpoints:
     web:
       exposure:

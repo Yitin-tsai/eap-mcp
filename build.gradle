@@ -29,6 +29,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    implementation 'org.liquibase:liquibase-core'
     
     // 正確的 MCP Server WebMVC Starter
     implementation 'org.springframework.ai:spring-ai-starter-mcp-server-webmvc'
@@ -42,6 +45,7 @@ dependencies {
     
     // Logging and metrics
     implementation 'io.micrometer:micrometer-registry-prometheus'
+    runtimeOnly 'org.postgresql:postgresql'
     
     // Lombok
     compileOnly 'org.projectlombok:lombok'
@@ -49,6 +53,8 @@ dependencies {
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
 }
 
 dependencyManagement {
@@ -61,4 +67,17 @@ dependencyManagement {
 
 tasks.named('test') {
     useJUnitPlatform()
+    systemProperty 'eap.integration.postgres', System.getProperty('eap.integration.postgres', 'false')
+}
+
+tasks.register('postgresIntegrationTest', Test) {
+    group = 'verification'
+    description = 'Run PostgreSQL-backed recovery control-plane audit and broker quarantine tests.'
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    systemProperty 'eap.integration.postgres', 'true'
+    systemProperty 'api.version', System.getProperty('api.version', '1.40')
+    include '**/*PostgresIT.class'
+    shouldRunAfter tasks.named('test')
 }

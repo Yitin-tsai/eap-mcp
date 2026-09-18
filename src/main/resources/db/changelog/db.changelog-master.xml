@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="recovery-control-001" author="eap">
+        <comment>Persist observed terminal cases, operator dispositions, and immutable recovery action audit data</comment>
+        <sql>
+            CREATE SCHEMA IF NOT EXISTS recovery_control;
+
+            CREATE TABLE recovery_control.recovery_cases (
+                case_id TEXT PRIMARY KEY,
+                service VARCHAR(80) NOT NULL,
+                debt_type VARCHAR(40) NOT NULL,
+                work VARCHAR(100) NOT NULL,
+                source_id TEXT NOT NULL,
+                fingerprint VARCHAR(64) NOT NULL,
+                snapshot_json TEXT NOT NULL,
+                disposition VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+                disposition_reason TEXT,
+                disposition_operator VARCHAR(120),
+                disposition_at TIMESTAMP,
+                first_observed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_observed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT ck_recovery_case_disposition
+                    CHECK (disposition IN ('OPEN', 'PARKED', 'RESOLVED'))
+            );
+
+            CREATE INDEX idx_recovery_cases_service_disposition
+                ON recovery_control.recovery_cases(service, disposition, last_observed_at);
+
+            CREATE TABLE recovery_control.recovery_actions (
+                action_id UUID PRIMARY KEY,
+                case_id TEXT NOT NULL,
+                action_type VARCHAR(20) NOT NULL,
+                expected_fingerprint VARCHAR(64) NOT NULL,
+                operator_id VARCHAR(120) NOT NULL,
+                reason TEXT NOT NULL,
+                status VARCHAR(30) NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 1,
+                requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_attempt_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                before_json TEXT,
+                after_json TEXT,
+                result_json TEXT,
+                last_error TEXT,
+                CONSTRAINT ck_recovery_action_status
+                    CHECK (status IN ('STARTED', 'APPLIED', 'ALREADY_APPLIED', 'REJECTED',
+                                      'NO_LONGER_ELIGIBLE', 'FAILED')),
+                CONSTRAINT ck_recovery_action_attempt CHECK (attempt_count &gt; 0)
+            );
+
+            CREATE INDEX idx_recovery_actions_operator_time
+                ON recovery_control.recovery_actions(operator_id, requested_at);
+            CREATE INDEX idx_recovery_actions_case_time
+                ON recovery_control.recovery_actions(case_id, requested_at);
+
+            CREATE TABLE recovery_control.broker_dead_letters (
+                case_id TEXT PRIMARY KEY,
+                source_id TEXT NOT NULL,
+                source_queue VARCHAR(255),
+                original_exchange VARCHAR(255),
+                original_routing_key VARCHAR(255),
+                message_id VARCHAR(255),
+                content_type VARCHAR(120),
+                payload TEXT NOT NULL,
+                payload_base64 TEXT NOT NULL,
+                headers_json TEXT NOT NULL,
+                failure_class VARCHAR(30) NOT NULL,
+                last_error TEXT,
+                redrive_count INTEGER NOT NULL DEFAULT 0,
+                first_failed_at TIMESTAMP NOT NULL,
+                last_failed_at TIMESTAMP NOT NULL,
+                fingerprint VARCHAR(64) NOT NULL,
+                captured_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT ck_broker_dead_letter_redrive CHECK (redrive_count &gt;= 0)
+            );
+
+            CREATE INDEX idx_broker_dead_letters_failed_at
+                ON recovery_control.broker_dead_letters(first_failed_at, case_id);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
