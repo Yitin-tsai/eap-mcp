@@ -121,6 +121,84 @@ class RecoveryControlPostgresIT {
     }
 
     @Test
+    void exactWalletTradeTopologyShouldExposeConditionalReplay() {
+        MessageProperties properties = new MessageProperties();
+        properties.setMessageId("wallet-trade-dead-letter-1");
+        properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        properties.setHeader("x-exception-message", "database connection timeout");
+        properties.setHeader("x-death", List.of(Map.of(
+                "queue", "wallet.tradeExecuted.queue",
+                "exchange", "trade.exchange",
+                "routing-keys", List.of("trade.executed"),
+                "count", 3L,
+                "time", Date.from(Instant.parse("2026-09-18T01:00:00Z")))));
+        Message message = new Message(
+                "{\"tradeId\":\"trade-1\"}".getBytes(StandardCharsets.UTF_8), properties);
+
+        var captured = broker.capture(message);
+        var loaded = broker.detail(captured.summary().caseId());
+
+        assertThat(loaded.summary().allowedActions()).contains(RecoveryActionType.REPLAY);
+        assertThat(loaded.sourceMetadata())
+                .containsEntry("ownerService", "eap-wallet")
+                .containsEntry("ownerWork", "TradeExecutedEvent");
+    }
+
+    @Test
+    void exactOrderTradeTopologyShouldExposeOrderOwnedConditionalReplay() {
+        Message message = deadLetter(
+                "order-trade-dead-letter-1",
+                "order.tradeExecuted.queue",
+                "trade.exchange",
+                "trade.executed");
+        message.getMessageProperties().setHeader(
+                "x-exception-message", "database connection timeout");
+
+        var captured = broker.capture(message);
+        var loaded = broker.detail(captured.summary().caseId());
+
+        assertThat(loaded.summary().allowedActions()).contains(RecoveryActionType.REPLAY);
+        assertThat(loaded.sourceMetadata())
+                .containsEntry("ownerService", "eap-order")
+                .containsEntry("ownerWork", "TradeExecutedEvent");
+    }
+
+    @Test
+    void sameBrokerMessageDeadLetteredByDifferentConsumersShouldCreateDifferentCases() {
+        Message orderCopy = deadLetter(
+                "shared-message-id", "order.tradeExecuted.queue", "trade.exchange", "trade.executed");
+        Message walletCopy = deadLetter(
+                "shared-message-id", "wallet.tradeExecuted.queue", "trade.exchange", "trade.executed");
+
+        var orderCase = broker.capture(orderCopy);
+        var walletCase = broker.capture(walletCopy);
+
+        assertThat(orderCase.summary().caseId()).isNotEqualTo(walletCase.summary().caseId());
+        assertThat(orderCase.summary().sourceId()).startsWith("order.tradeExecuted.queue:");
+        assertThat(walletCase.summary().sourceId()).startsWith("wallet.tradeExecuted.queue:");
+    }
+
+    @Test
+    void permanentOrSchemaFailureShouldNotExposeReplayEvenOnAllowlistedRoute() {
+        MessageProperties properties = new MessageProperties();
+        properties.setMessageId("wallet-trade-schema-failure");
+        properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        properties.setHeader("x-exception-message", "Cannot deserialize JSON payload");
+        properties.setHeader("x-death", List.of(Map.of(
+                "queue", "wallet.tradeExecuted.queue",
+                "exchange", "trade.exchange",
+                "routing-keys", List.of("trade.executed"),
+                "count", 3L,
+                "time", Date.from(Instant.parse("2026-09-18T01:00:00Z")))));
+
+        var captured = broker.capture(new Message("{}".getBytes(StandardCharsets.UTF_8), properties));
+
+        assertThat(captured.summary().failureClass()).isEqualTo(RecoveryFailureClass.SCHEMA);
+        assertThat(captured.summary().allowedActions())
+                .containsExactlyInAnyOrder(RecoveryActionType.PARK, RecoveryActionType.RESOLVE);
+    }
+
+    @Test
     void newActionIdsShouldBeBoundedPerOperatorMinute() {
         RecoveryCaseSummary before = summary();
         for (int index = 0; index < 10; index++) {
@@ -144,5 +222,18 @@ class RecoveryControlPostgresIT {
                 "event_outbox", "17", "FAILED", RecoveryFailureClass.TRANSIENT,
                 10, now, now, "PUBLISH_RETRY_EXHAUSTED", "broker unavailable",
                 Map.of("outboxId", "17"), EnumSet.allOf(RecoveryActionType.class), "fingerprint-17");
+    }
+
+    private Message deadLetter(String messageId, String queue, String exchange, String routingKey) {
+        MessageProperties properties = new MessageProperties();
+        properties.setMessageId(messageId);
+        properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        properties.setHeader("x-death", List.of(Map.of(
+                "queue", queue,
+                "exchange", exchange,
+                "routing-keys", List.of(routingKey),
+                "count", 1L,
+                "time", Date.from(Instant.parse("2026-09-18T01:00:00Z")))));
+        return new Message("{}".getBytes(StandardCharsets.UTF_8), properties);
     }
 }

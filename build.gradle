@@ -81,3 +81,23 @@ tasks.register('postgresIntegrationTest', Test) {
     include '**/*PostgresIT.class'
     shouldRunAfter tasks.named('test')
 }
+
+tasks.register('rabbitIntegrationTest', Test) {
+    group = 'verification'
+    description = 'Run RabbitMQ-backed broker dead-letter replay publisher tests.'
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    systemProperty 'eap.integration.rabbit', 'true'
+    systemProperty 'api.version', System.getProperty('api.version', '1.40')
+    include '**/*RabbitIT.class'
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.register('brokerDeadLetterSeed', JavaExec) {
+    group = 'verification'
+    description = 'Publish one deterministic REL-107 captured-DLQ fixture to RabbitMQ.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.eap.mcp.recovery.BrokerDeadLetterSeedPublisher'
+    dependsOn tasks.named('testClasses')
+}

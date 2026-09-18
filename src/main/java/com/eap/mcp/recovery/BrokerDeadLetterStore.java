@@ -42,10 +42,15 @@ public class BrokerDeadLetterStore {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final BrokerReplayRouteRegistry replayRoutes;
 
-    public BrokerDeadLetterStore(NamedParameterJdbcTemplate jdbc, ObjectMapper objectMapper) {
+    public BrokerDeadLetterStore(
+            NamedParameterJdbcTemplate jdbc,
+            ObjectMapper objectMapper,
+            BrokerReplayRouteRegistry replayRoutes) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
+        this.replayRoutes = replayRoutes;
     }
 
     @Transactional
@@ -57,10 +62,13 @@ public class BrokerDeadLetterStore {
         Death death = death(headers);
         String messageId = message.getMessageProperties().getMessageId();
         String payloadHash = RecoveryFingerprint.sha256(payloadBase64);
-        String sourceId = messageId == null || messageId.isBlank()
+        String messageIdentity = messageId == null || messageId.isBlank()
                 ? RecoveryFingerprint.sha256(
                         payloadHash, death.queue(), death.exchange(), death.routingKey())
                 : messageId;
+        String sourceId = death.queue() == null || death.queue().isBlank()
+                ? messageIdentity
+                : death.queue() + ":" + messageIdentity;
         String caseId = RecoveryCaseId.encode(
                 SERVICE, RecoveryDebtType.BROKER_DEAD_LETTER, WORK, sourceId);
         String error = firstText(headers,
@@ -174,6 +182,20 @@ public class BrokerDeadLetterStore {
         if (lastUpdated.isBefore(firstSeen)) {
             lastUpdated = firstSeen;
         }
+        RecoveryFailureClass failureClass = RecoveryFailureClass.valueOf(
+                rs.getString("failure_class"));
+        EnumSet<RecoveryActionType> allowedActions = EnumSet.of(
+                RecoveryActionType.PARK, RecoveryActionType.RESOLVE);
+        BrokerReplayRouteRegistry.ReplayRoute replayRoute = replayRoutes.resolve(
+                        rs.getString("source_queue"),
+                        rs.getString("original_exchange"),
+                        rs.getString("original_routing_key"))
+                .orElse(null);
+        boolean replaySupported = failureClass == RecoveryFailureClass.TRANSIENT
+                && replayRoute != null;
+        if (replaySupported) {
+            allowedActions.add(RecoveryActionType.REPLAY);
+        }
         RecoveryCaseSummary summary = new RecoveryCaseSummary(
                 rs.getString("case_id"),
                 SERVICE,
@@ -181,14 +203,14 @@ public class BrokerDeadLetterStore {
                 WORK,
                 rs.getString("source_id"),
                 "CAPTURED",
-                RecoveryFailureClass.valueOf(rs.getString("failure_class")),
+                failureClass,
                 rs.getInt("redrive_count"),
                 firstSeen,
                 lastUpdated,
                 "BROKER_DEAD_LETTER",
                 rs.getString("last_error"),
                 identity,
-                EnumSet.of(RecoveryActionType.PARK, RecoveryActionType.RESOLVE),
+                allowedActions,
                 rs.getString("fingerprint"));
         Map<String, String> metadata = new LinkedHashMap<>();
         put(metadata, "sourceQueue", rs.getString("source_queue"));
@@ -198,8 +220,13 @@ public class BrokerDeadLetterStore {
         put(metadata, "headersJson", rs.getString("headers_json"));
         put(metadata, "payloadBase64", rs.getString("payload_base64"));
         put(metadata, "lastFailedAt", rs.getTimestamp("last_failed_at").toInstant().toString());
-        put(metadata, "replayPolicy",
-                "disabled: shared DLQ cannot prove consumer ownership or business-state preflight");
+        put(metadata, "replayPolicy", replaySupported
+                ? "conditional: exact topology ownership plus owner business-state preflight"
+                : "disabled: failure class or source topology is not allowlisted for safe replay");
+        if (replaySupported) {
+            put(metadata, "ownerService", replayRoute.ownerService());
+            put(metadata, "ownerWork", replayRoute.work());
+        }
         return new RecoveryCaseDetail(summary, rs.getString("payload"), metadata);
     }
 

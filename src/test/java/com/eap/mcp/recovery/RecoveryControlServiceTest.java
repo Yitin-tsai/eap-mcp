@@ -1,6 +1,8 @@
 package com.eap.mcp.recovery;
 
 import com.eap.common.recovery.RecoveryActionType;
+import com.eap.common.recovery.BrokerReplayPreflightDecision;
+import com.eap.common.recovery.BrokerReplayPreflightResult;
 import com.eap.common.recovery.RecoveryCaseDetail;
 import com.eap.common.recovery.RecoveryCaseId;
 import com.eap.common.recovery.RecoveryCaseSummary;
@@ -36,6 +38,7 @@ class RecoveryControlServiceTest {
     private MatchRecoverySourceClient match;
     private RecoveryAuditStore audit;
     private BrokerDeadLetterStore broker;
+    private BrokerDeadLetterReplayCoordinator brokerReplay;
     private RecoveryControlService service;
 
     @BeforeEach
@@ -45,7 +48,9 @@ class RecoveryControlServiceTest {
         match = mock(MatchRecoverySourceClient.class);
         audit = mock(RecoveryAuditStore.class);
         broker = mock(BrokerDeadLetterStore.class);
-        service = new RecoveryControlService(order, wallet, match, audit, broker, "source-secret");
+        brokerReplay = mock(BrokerDeadLetterReplayCoordinator.class);
+        service = new RecoveryControlService(
+                order, wallet, match, audit, broker, brokerReplay, "source-secret");
     }
 
     @Test
@@ -119,6 +124,40 @@ class RecoveryControlServiceTest {
         assertThat(result).isEqualTo(applied);
         verify(order, never()).detail(any(), any());
         verify(audit).complete(applied);
+    }
+
+    @Test
+    void brokerReplayShouldRecheckOwnerAndResolveOnlyAfterSafeExecution() {
+        RecoveryCaseSummary before = summary(
+                "rabbitmq", RecoveryDebtType.BROKER_DEAD_LETTER, "order.dlq",
+                "dead-letter-1", RecoveryFailureClass.TRANSIENT,
+                EnumSet.allOf(RecoveryActionType.class));
+        RecoveryCaseDetail detail = new RecoveryCaseDetail(before, "{}", Map.of());
+        String caseId = before.caseId();
+        UUID actionId = UUID.randomUUID();
+        RecoveryControlActionRequest request = new RecoveryControlActionRequest(
+                actionId, RecoveryActionType.REPLAY, before.fingerprint(), "database recovered");
+        when(audit.completed(caseId, request, "operator-a")).thenReturn(null);
+        when(audit.pendingBefore(caseId, request, "operator-a")).thenReturn(null);
+        when(broker.detail(caseId)).thenReturn(detail);
+        when(audit.observe(before)).thenReturn(
+                new RecoveryAuditStore.CaseControlState("OPEN", null, null, null, Instant.now()));
+        when(audit.begin(caseId, request, "operator-a", before))
+                .thenReturn(new RecoveryAuditStore.BeginAction(false, null));
+        when(audit.state(caseId)).thenReturn(
+                new RecoveryAuditStore.CaseControlState("OPEN", null, null, null, Instant.now()));
+        when(brokerReplay.execute(detail, "source-secret", actionId)).thenReturn(
+                new BrokerReplayPreflightResult(
+                        BrokerReplayPreflightDecision.ELIGIBLE, true,
+                        "valid and not received", "trade-1", null));
+
+        RecoveryExecuteResult result = service.execute(caseId, request, "operator-a");
+
+        assertThat(result.status()).isEqualTo(RecoveryExecutionStatus.APPLIED);
+        assertThat(result.message()).contains("owner business-state preflight");
+        verify(audit).setDisposition(
+                caseId, before.fingerprint(), "RESOLVED", "operator-a", "database recovered");
+        verify(audit).complete(result);
     }
 
     private RecoveryCaseSummary summary(

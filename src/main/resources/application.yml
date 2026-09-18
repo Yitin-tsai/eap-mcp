@@ -35,6 +35,10 @@ spring:
     port: ${EAP_RABBITMQ_PORT:5672}
     username: ${EAP_RABBITMQ_USERNAME:admin}
     password: ${EAP_RABBITMQ_PASSWORD:admin123}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
 
   # Spring AI MCP configuration
   ai:
@@ -69,6 +73,7 @@ eap:
     broker-dlq:
       enabled: ${EAP_RECOVERY_BROKER_DLQ_ENABLED:false}
       queue: order.dlq
+      replay-confirm-timeout-ms: 5000
 
 # MCP Server configuration
 mcp:
